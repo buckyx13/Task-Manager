@@ -14,7 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY app.py .
-RUN useradd --system --no-create-home appuser
-USER appuser
+RUN useradd --system --no-create-home --uid 10001 appuser
+USER 10001
 EXPOSE 5000
 CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]

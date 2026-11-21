@@ -15,7 +15,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY app.py .
 COPY templates ./templates
-RUN useradd --system --no-create-home appuser
-USER appuser
+RUN useradd --system --no-create-home --uid 10001 appuser
+USER 10001
 EXPOSE 8000
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "app:app"]
