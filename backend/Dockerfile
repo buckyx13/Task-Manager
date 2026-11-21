@@ -12,6 +12,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /opt/venv /opt/venv
 COPY app.py .
 RUN useradd --system --no-create-home --uid 10001 appuser

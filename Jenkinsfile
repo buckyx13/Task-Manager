@@ -65,8 +65,8 @@ pipeline {
     stage('Build Images') {
       steps {
         sh '''
-          docker build -t task-backend:${BUILD_NUMBER} backend
-          docker build -t task-frontend:${BUILD_NUMBER} frontend
+          docker build --pull -t task-backend:${BUILD_NUMBER} backend
+          docker build --pull -t task-frontend:${BUILD_NUMBER} frontend
         '''
       }
     }
