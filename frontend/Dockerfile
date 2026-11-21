@@ -18,6 +18,7 @@ RUN apt-get update \
 COPY --from=builder /opt/venv /opt/venv
 COPY app.py .
 COPY templates ./templates
+COPY static ./static
 RUN useradd --system --no-create-home --uid 10001 appuser
 USER 10001
 EXPOSE 8000
