@@ -67,7 +67,8 @@ pipeline {
         sh '''
           docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
             bridgecrew/checkov:latest \
-            -d . --framework dockerfile --compact --quiet
+            -f backend/Dockerfile -f frontend/Dockerfile \
+            --framework dockerfile --compact --quiet
         '''
       }
     }
