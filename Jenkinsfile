@@ -130,17 +130,27 @@ pipeline {
     stage('DAST - OWASP ZAP') {
       steps {
         script {
+          sh '''
+            docker volume create zap-wrk-$BUILD_NUMBER
+            docker run --rm -v zap-wrk-$BUILD_NUMBER:/zap/wrk busybox chmod 777 /zap/wrk
+          '''
           def rc = sh(returnStatus: true, script: '''
-            docker run --name zap-$BUILD_NUMBER --network net-$BUILD_NUMBER \
+            docker run --name zap-$BUILD_NUMBER \
+              --network net-$BUILD_NUMBER \
+              -v zap-wrk-$BUILD_NUMBER:/zap/wrk \
               ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-              -t http://frontend-$BUILD_NUMBER:8000 -r zap-report.html
+              -t http://frontend-$BUILD_NUMBER:8000 \
+              -r zap-report.html
           ''')
           sh 'docker cp zap-$BUILD_NUMBER:/zap/wrk/zap-report.html . || true'
-          if (rc != 0) { unstable("ZAP reported findings (exit code ${rc})") }
+          if (rc == 1 || rc == 2) {
+            unstable("ZAP reported findings (exit code ${rc})")
+          } else if (rc != 0) {
+            error("ZAP failed to run (exit code ${rc})")
+          }
         }
       }
     }
-  }
 
   post {
     always {
@@ -148,6 +158,7 @@ pipeline {
         docker rm -f zap-$BUILD_NUMBER frontend-$BUILD_NUMBER \
           backend-$BUILD_NUMBER db-$BUILD_NUMBER || true
         docker network rm net-$BUILD_NUMBER || true
+        docker volume rm zap-wrk-$BUILD_NUMBER || true
       '''
       archiveArtifacts artifacts: 'zap-report.html', allowEmptyArchive: true
     }
