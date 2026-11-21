@@ -10,9 +10,12 @@ def get_conn():
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=os.getenv("DB_PORT", "5432"),
-        dbname=os.getenv("DB_NAME", "taskdb"),
-        user=os.getenv("DB_USER", "taskuser"),
-        password=os.getenv("DB_PASSWORD", "taskpass"),
+        user=os.environ["DB_USER"],
+        dbname=os.environ["DB_NAME"],
+        password=os.environ["DB_PASSWORD"],
+        # dbname=os.getenv("DB_NAME", "taskdb"),
+        # user=os.getenv("DB_USER", "taskuser"),
+        # password=os.getenv("DB_PASSWORD", "taskpass"),
     )
 
 

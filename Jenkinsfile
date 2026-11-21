@@ -54,5 +54,35 @@ pipeline {
         '''
       }
     }
+    stage('Dockerfile Lint - Hadolint') {
+      steps {
+        sh '''
+          docker run --rm -i hadolint/hadolint < backend/Dockerfile
+          docker run --rm -i hadolint/hadolint < frontend/Dockerfile
+        '''
+      }
+    }
+    stage('Build Images') {
+      steps {
+        sh '''
+          docker build -t task-backend:${BUILD_NUMBER} backend
+          docker build -t task-frontend:${BUILD_NUMBER} frontend
+        '''
+      }
+    }
+    stage('Image Scan - Trivy') {
+      steps {
+        sh '''
+          for img in task-backend task-frontend; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v trivy-cache:/root/.cache \
+              aquasec/trivy:latest image \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+              $img:${BUILD_NUMBER}
+          done
+        '''
+      }
+    }
   }
 }
