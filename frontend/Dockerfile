@@ -22,4 +22,6 @@ COPY static ./static
 RUN useradd --system --no-create-home --uid 10001 appuser
 USER 10001
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')" || exit 1
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "app:app"]

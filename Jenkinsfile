@@ -62,6 +62,15 @@ pipeline {
         '''
       }
     }
+    stage('IaC Scan - Checkov') {
+      steps {
+        sh '''
+          docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
+            bridgecrew/checkov:latest \
+            -d . --framework dockerfile --compact --quiet
+        '''
+      }
+    }
     stage('Build Images') {
       steps {
         sh '''
@@ -151,6 +160,21 @@ pipeline {
         }
       }
     }
+    stage('SBOM') {
+      steps {
+        sh '''
+          for img in task-backend task-frontend; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v trivy-cache:/root/.cache \
+              --volumes-from jenkins -w "$WORKSPACE" \
+              aquasec/trivy:latest image \
+              --format cyclonedx --output sbom-$img.cdx.json \
+              $img:${BUILD_NUMBER}
+          done
+        '''
+      }
+    }
   }
 
   post {
@@ -161,7 +185,7 @@ pipeline {
         docker network rm net-$BUILD_NUMBER || true
         docker volume rm zap-wrk-$BUILD_NUMBER || true
       '''
-      archiveArtifacts artifacts: 'zap-report.html', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'zap-report.html, sbom-*.json', allowEmptyArchive: true
     }
   }
 }
