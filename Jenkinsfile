@@ -14,26 +14,44 @@ pipeline {
         '''
       }
     }
+    // stage('SAST - Bandit') {
+    //   steps {
+    //     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+    //       sh '''
+    //         docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
+    //           python:3.12-slim sh -c \
+    //           "pip install -q bandit && bandit -r backend frontend -ll"
+    //       '''
+    //     }
+    //   }
+    // }
+    // stage('SCA - pip-audit') {
+    //   steps {
+    //     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+    //       sh '''
+    //         docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
+    //           python:3.12-slim sh -c \
+    //           "pip install -q pip-audit && pip-audit -r backend/requirements.txt && pip-audit -r frontend/requirements.txt"
+    //       '''
+    //     }
+    //   }
+    // }
     stage('SAST - Bandit') {
       steps {
-        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-          sh '''
-            docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
-              python:3.12-slim sh -c \
-              "pip install -q bandit && bandit -r backend frontend -ll"
-          '''
-        }
+        sh '''
+          docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
+            python:3.12-slim sh -c \
+            "pip install -q bandit && bandit -r backend frontend -ll"
+        '''
       }
     }
     stage('SCA - pip-audit') {
       steps {
-        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-          sh '''
-            docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
-              python:3.12-slim sh -c \
-              "pip install -q pip-audit && pip-audit -r backend/requirements.txt && pip-audit -r frontend/requirements.txt"
-          '''
-        }
+        sh '''
+          docker run --rm --volumes-from jenkins -w "$WORKSPACE" \
+            python:3.12-slim sh -c \
+            "pip install -q pip-audit && pip-audit -r backend/requirements.txt -r frontend/requirements.txt"
+        '''
       }
     }
   }
