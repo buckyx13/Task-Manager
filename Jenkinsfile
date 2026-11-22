@@ -161,6 +161,81 @@ pipeline {
         }
       }
     }
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                         usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
+          sh '''
+            echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
+            for svc in backend frontend; do
+              docker tag task-$svc:$BUILD_NUMBER $DH_USER/task-$svc:$BUILD_NUMBER
+              docker push $DH_USER/task-$svc:$BUILD_NUMBER
+            done
+            docker logout
+          '''
+        }
+      }
+    }
+    stage('Approval') {
+      steps {
+        timeout(time: 30, unit: 'MINUTES') {
+          input message: "Deploy build ${BUILD_NUMBER} to production?", ok: 'Deploy'
+        }
+      }
+    }
+    stage('Deploy to Production') {
+      steps {
+        withCredentials([
+          usernamePassword(credentialsId: 'dockerhub-creds',
+                           usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN'),
+          string(credentialsId: 'prod-db-user', variable: 'DB_USER'),
+          string(credentialsId: 'prod-db-password', variable: 'DB_PASSWORD'),
+          string(credentialsId: 'prod-db-name', variable: 'DB_NAME')
+        ]) {
+          sh '''
+            docker network inspect prod-net >/dev/null 2>&1 || docker network create prod-net
+
+            # Create the database only once; data lives in a named volume
+            if ! docker ps -a --format '{{.Names}}' | grep -qx prod-db; then
+              export POSTGRES_USER="$DB_USER" POSTGRES_PASSWORD="$DB_PASSWORD" POSTGRES_DB="$DB_NAME"
+              docker run -d --name prod-db --network prod-net --restart unless-stopped \
+                -v prod-pgdata:/var/lib/postgresql/data \
+                -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB postgres:16
+              for i in $(seq 1 30); do
+                docker exec prod-db pg_isready -h 127.0.0.1 -U "$DB_USER" && break
+                sleep 2
+              done
+              docker exec -i prod-db psql -U "$DB_USER" -d "$DB_NAME" < database/init.sql
+            fi
+
+            # Pull the exact versioned images from the registry
+            echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
+            docker pull $DH_USER/task-backend:$BUILD_NUMBER
+            docker pull $DH_USER/task-frontend:$BUILD_NUMBER
+            docker logout
+
+            # Replace the app containers
+            docker rm -f prod-backend prod-frontend || true
+            docker run -d --name prod-backend --network prod-net --restart unless-stopped \
+              -e DB_HOST=prod-db -e DB_NAME -e DB_USER -e DB_PASSWORD \
+              $DH_USER/task-backend:$BUILD_NUMBER
+            docker run -d --name prod-frontend --network prod-net --restart unless-stopped \
+              -e BACKEND_URL=http://prod-backend:5000 -p 8001:8000 \
+              $DH_USER/task-frontend:$BUILD_NUMBER
+
+            # Smoke test
+            for i in $(seq 1 30); do
+              docker run --rm --network prod-net curlimages/curl -sf \
+                http://prod-frontend:8000/ >/dev/null && exit 0
+              sleep 2
+            done
+            docker logs prod-backend
+            docker logs prod-frontend
+            exit 1
+          '''
+        }
+      }
+    }
     stage('SBOM') {
       steps {
         sh '''
