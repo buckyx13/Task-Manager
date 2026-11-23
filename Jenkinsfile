@@ -5,7 +5,7 @@ pipeline {
     disableConcurrentBuilds(abortPrevious: true)
   }
   triggers {
-    cron('H 20 * * *')
+    cron('H/5 * * * *')
     pollSCM('H/5 * * * *')
   }
   stages {
