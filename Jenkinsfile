@@ -1,6 +1,13 @@
 pipeline {
   agent any
-  options { timestamps() }
+  options {
+    timestamps()
+    disableConcurrentBuilds(abortPrevious: true)
+  }
+  triggers {
+    cron('H 20 * * *')
+    pollSCM('H/5 * * * *')
+  }
   stages {
     stage('Checkout') {
       steps { checkout scm }
@@ -162,6 +169,7 @@ pipeline {
       }
     }
     stage('Push to Docker Hub') {
+      when { not { triggeredBy 'TimerTrigger' } }
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
                          usernameVariable: 'DH_USER', passwordVariable: 'DH_TOKEN')]) {
@@ -177,6 +185,7 @@ pipeline {
       }
     }
     stage('Approval') {
+      when { not { triggeredBy 'TimerTrigger' } }
       steps {
         timeout(time: 30, unit: 'MINUTES') {
           input message: "Deploy build ${BUILD_NUMBER} to production?", ok: 'Deploy'
@@ -184,6 +193,7 @@ pipeline {
       }
     }
     stage('Deploy to Production') {
+      when { not { triggeredBy 'TimerTrigger' } }
       steps {
         withCredentials([
           usernamePassword(credentialsId: 'dockerhub-creds',
